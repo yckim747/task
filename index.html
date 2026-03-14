@@ -306,13 +306,10 @@
 
     /* ===== Share Modal ===== */
     .share-result {
-      margin-top: 14px;
       padding: 12px;
       background: #f8fafc;
       border-radius: 8px;
-      display: none;
     }
-    .share-result.active { display: block; }
     .share-result-label { font-size: 0.78rem; color: #64748b; margin-bottom: 6px; }
     .share-url-box {
       display: flex;
@@ -625,18 +622,19 @@
         <button class="modal-close" id="shareClose">&times;</button>
       </div>
       <p style="font-size:0.85rem;color:#64748b;margin-bottom:14px;">
-        현재 업무 데이터의 공유 링크를 생성합니다.<br>
-        공유된 링크는 읽기 전용 뷰어로 열립니다.
+        아래 고정 URL로 항상 최신 업무 현황을 확인할 수 있습니다.<br>
+        [데이터 업데이트] 버튼을 누르면 현재 업무 내용이 반영됩니다.
       </p>
-      <button class="btn btn-primary" id="shareGenerate" style="width:100%;justify-content:center;padding:12px;">공유 링크 생성</button>
-      <div class="share-result" id="shareResult">
-        <div class="share-result-label" id="shareResultLabel">공유 URL</div>
+      <div class="share-result" style="display:block;margin-bottom:12px;">
+        <div class="share-result-label">공유 URL (고정)</div>
         <div class="share-url-box">
           <input type="text" id="shareUrlInput" readonly>
           <button type="button" class="btn btn-primary" id="shareCopyBtn">복사</button>
         </div>
         <div class="share-toast" id="shareToast">클립보드에 복사되었습니다!</div>
       </div>
+      <button class="btn btn-primary" id="shareUpdate" style="width:100%;justify-content:center;padding:12px;">데이터 업데이트</button>
+      <div id="shareStatus" style="text-align:center;font-size:0.8rem;margin-top:8px;color:#16a34a;display:none;"></div>
     </div>
   </div>
 
@@ -676,27 +674,24 @@
       } catch { supabaseClient = null; }
     }
 
-    function generateShareId() {
-      return crypto.randomUUID().replace(/-/g, '').substring(0, 12);
-    }
+    const FIXED_SHARE_ID = 'report';
 
-    async function createShare(mode) {
-      if (!supabaseClient) { alert('Supabase 설정을 먼저 완료해주세요.'); return null; }
+    async function updateShare() {
+      if (!supabaseClient) { alert('Supabase 연결 실패'); return false; }
       const filtered = getFilteredTasks();
       const sorted = sortTasks(filtered);
-      const shareId = generateShareId();
 
-      const { error } = await supabaseClient.from('shared_tasks').insert({
-        share_id: shareId,
-        mode: mode,
+      const { error } = await supabaseClient.from('shared_tasks').upsert({
+        share_id: FIXED_SHARE_ID,
+        mode: 'report',
         tasks: sorted,
-      });
+      }, { onConflict: 'share_id' });
 
       if (error) {
-        alert('공유 생성 실패: ' + error.message);
-        return null;
+        alert('공유 업데이트 실패: ' + error.message);
+        return false;
       }
-      return shareId;
+      return true;
     }
 
     async function loadSharedTasks(shareId) {
@@ -1118,9 +1113,17 @@
     }
 
     /* ===== Share Modal ===== */
+    function getShareUrl() {
+      const base = window.location.protocol === 'file:'
+        ? 'https://yckim747.github.io/task'
+        : window.location.origin + window.location.pathname;
+      return `${base}?share=${FIXED_SHARE_ID}`;
+    }
+
     function openShare() {
-      $('#shareResult').classList.remove('active');
+      $('#shareUrlInput').value = getShareUrl();
       $('#shareToast').style.display = 'none';
+      $('#shareStatus').style.display = 'none';
       $('#shareOverlay').classList.add('active');
     }
 
@@ -1128,25 +1131,21 @@
       $('#shareOverlay').classList.remove('active');
     }
 
-    async function handleShare() {
-      const btn = $('#shareGenerate');
+    async function handleShareUpdate() {
+      const btn = $('#shareUpdate');
+      const status = $('#shareStatus');
       btn.disabled = true;
-      btn.textContent = '생성 중...';
+      btn.textContent = '업데이트 중...';
 
-      const shareId = await createShare('report');
+      const ok = await updateShare();
 
       btn.disabled = false;
-      btn.textContent = '공유 링크 생성';
+      btn.textContent = '데이터 업데이트';
 
-      if (!shareId) return;
-
-      const base = window.location.protocol === 'file:'
-        ? 'https://yckim747.github.io/task'
-        : window.location.origin + window.location.pathname;
-      const shareUrl = `${base}?share=${shareId}`;
-
-      $('#shareUrlInput').value = shareUrl;
-      $('#shareResult').classList.add('active');
+      if (ok) {
+        status.textContent = '업데이트 완료! (' + new Date().toLocaleTimeString('ko') + ')';
+        status.style.display = 'block';
+      }
     }
 
     function copyShareUrl() {
@@ -1197,7 +1196,7 @@
     $('#shareOverlay').addEventListener('click', (e) => {
       if (e.target === $('#shareOverlay')) closeShare();
     });
-    $('#shareGenerate').addEventListener('click', handleShare);
+    $('#shareUpdate').addEventListener('click', handleShareUpdate);
     $('#shareCopyBtn').addEventListener('click', copyShareUrl);
 
     /* ===== Init ===== */
