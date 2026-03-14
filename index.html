@@ -681,11 +681,12 @@
       const filtered = getFilteredTasks();
       const sorted = sortTasks(filtered);
 
-      const { error } = await supabaseClient.from('shared_tasks').upsert({
+      await supabaseClient.from('shared_tasks').delete().eq('share_id', FIXED_SHARE_ID);
+      const { error } = await supabaseClient.from('shared_tasks').insert({
         share_id: FIXED_SHARE_ID,
         mode: 'report',
         tasks: sorted,
-      }, { onConflict: 'share_id' });
+      });
 
       if (error) {
         alert('공유 업데이트 실패: ' + error.message);
