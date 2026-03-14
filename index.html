@@ -1,0 +1,1244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>업무 관리</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: #f5f6f8;
+      color: #1e293b;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ===== Layout ===== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 20px;
+    }
+
+    /* ===== Header ===== */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #334155;
+    }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    /* ===== Buttons ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn:disabled:active { transform: none; }
+    .btn-primary {
+      background: #4338ca;
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: #3730a3; }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .btn-secondary:hover:not(:disabled) { background: #cbd5e1; }
+    .btn-danger {
+      background: #fee2e2;
+      color: #dc2626;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+    }
+    .btn-danger:hover { background: #fecaca; }
+    .btn-share {
+      background: #ede9fe;
+      color: #7c3aed;
+    }
+    .btn-share:hover:not(:disabled) { background: #ddd6fe; }
+
+    /* ===== Filter Bar ===== */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .filter-bar input,
+    .filter-bar select {
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      background: #fff;
+      color: #1e293b;
+    }
+    .filter-bar input {
+      flex: 1;
+      min-width: 200px;
+    }
+    .filter-bar input:focus,
+    .filter-bar select:focus {
+      outline: none;
+      border-color: #4338ca;
+      box-shadow: 0 0 0 2px rgba(67, 56, 202, 0.15);
+    }
+
+    /* ===== Table ===== */
+    .table-wrapper {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+    thead th {
+      background: #f8fafc;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+      user-select: none;
+    }
+    thead th.sortable { cursor: pointer; }
+    thead th.sortable:hover { color: #4338ca; }
+    .sort-icon { margin-left: 4px; font-size: 0.75rem; }
+    tbody td {
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    tbody tr { cursor: pointer; transition: background 0.1s; }
+    tbody tr:hover { background: #f8fafc; }
+
+    /* ===== Badges ===== */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .badge-priority-높음 { background: #fee2e2; color: #dc2626; }
+    .badge-priority-보통 { background: #fef3c7; color: #d97706; }
+    .badge-priority-낮음 { background: #dcfce7; color: #16a34a; }
+    .badge-status-대기 { background: #f1f5f9; color: #64748b; }
+    .badge-status-진행중 { background: #dbeafe; color: #2563eb; }
+    .badge-status-검토 { background: #ede9fe; color: #7c3aed; }
+    .badge-status-완료 { background: #dcfce7; color: #16a34a; }
+    .badge-status-보류 { background: #ffedd5; color: #ea580c; }
+
+    /* ===== Empty / Footer ===== */
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+    .table-footer {
+      padding: 10px 14px;
+      text-align: right;
+      font-size: 0.8rem;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      animation: scaleIn 0.2s ease;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .modal-header h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #334155;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #475569; }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+    .form-group label .required {
+      color: #dc2626;
+      margin-left: 2px;
+    }
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.875rem;
+      color: #1e293b;
+      background: #fff;
+    }
+    .form-group textarea { resize: vertical; }
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #4338ca;
+      box-shadow: 0 0 0 2px rgba(67, 56, 202, 0.15);
+    }
+    .form-group .error-msg {
+      color: #dc2626;
+      font-size: 0.75rem;
+      margin-top: 3px;
+      display: none;
+    }
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* ===== Share Modal ===== */
+    .share-options {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .share-option-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      text-align: left;
+    }
+    .share-option-btn:hover { border-color: #4338ca; background: #f8fafc; }
+    .share-option-btn .icon { font-size: 1.5rem; }
+    .share-option-btn .label { font-weight: 600; font-size: 0.9rem; color: #334155; }
+    .share-option-btn .desc { font-size: 0.78rem; color: #64748b; margin-top: 2px; }
+    .share-result {
+      margin-top: 14px;
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      display: none;
+    }
+    .share-result.active { display: block; }
+    .share-result-label { font-size: 0.78rem; color: #64748b; margin-bottom: 6px; }
+    .share-url-box {
+      display: flex;
+      gap: 6px;
+    }
+    .share-url-box input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: monospace;
+      background: #fff;
+      color: #334155;
+    }
+    .share-url-box .btn { white-space: nowrap; }
+    .share-toast {
+      font-size: 0.78rem;
+      color: #16a34a;
+      margin-top: 6px;
+      display: none;
+    }
+
+    /* ===== Viewer: Summary Stats ===== */
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      text-align: center;
+    }
+    .stat-card .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #334155;
+    }
+    .stat-card .stat-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 2px;
+    }
+
+    /* ===== Viewer: Card Layout ===== */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .task-card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-left: 4px solid #e2e8f0;
+    }
+    .task-card.priority-높음 { border-left-color: #dc2626; }
+    .task-card.priority-보통 { border-left-color: #d97706; }
+    .task-card.priority-낮음 { border-left-color: #16a34a; }
+    .task-card-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+    .task-card-badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .task-card-fields {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px;
+      font-size: 0.82rem;
+    }
+    .task-card-fields dt {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .task-card-fields dd {
+      color: #334155;
+    }
+    .task-card-detail {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 0.82rem;
+      color: #475569;
+      white-space: pre-wrap;
+    }
+
+    /* ===== Viewer banner ===== */
+    .viewer-banner {
+      background: #ede9fe;
+      color: #5b21b6;
+      text-align: center;
+      padding: 8px 16px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .viewer-banner.report { background: #dbeafe; color: #1e40af; }
+
+    /* ===== Loading ===== */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: #64748b;
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 32px; height: 32px;
+      border: 3px solid #e2e8f0;
+      border-top-color: #4338ca;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== Animations ===== */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .col-startDate { display: none; }
+      .viewer-table-wrapper table { min-width: auto; }
+    }
+    @media (max-width: 480px) {
+      .container { padding: 12px 10px; }
+      .header { flex-direction: column; align-items: stretch; }
+      .header-actions { justify-content: stretch; }
+      .header-actions .btn { flex: 1; justify-content: center; }
+      .filter-bar { flex-direction: column; }
+      .filter-bar input { min-width: unset; }
+      .modal {
+        max-width: 100%;
+        max-height: 100%;
+        height: 100%;
+        border-radius: 0;
+      }
+      .form-actions { flex-direction: column; }
+      .form-actions .btn { width: 100%; justify-content: center; }
+      .summary-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ===== Viewer mobile: force card layout, hide table ===== */
+    @media (max-width: 768px) {
+      .viewer-mode .table-wrapper { display: none; }
+      .viewer-mode .card-list-container { display: block !important; }
+    }
+    @media (min-width: 769px) {
+      .viewer-mode .card-list-container.admin-cards { display: none !important; }
+    }
+    /* Report mode always shows cards */
+    .viewer-mode.report-mode .table-wrapper { display: none !important; }
+    .viewer-mode.report-mode .card-list-container { display: block !important; }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <!-- Header -->
+    <div class="header" id="mainHeader">
+      <h1 id="appTitle">업무 관리</h1>
+      <div class="header-actions" id="headerActions">
+        <button class="btn btn-primary" id="btnAdd">+ 업무 추가</button>
+        <button class="btn btn-share" id="btnShare">공유</button>
+        <button class="btn btn-secondary" id="btnExcel">엑셀 출력</button>
+      </div>
+    </div>
+
+    <!-- Viewer Banner (hidden by default) -->
+    <div class="viewer-banner" id="viewerBanner" style="display:none;"></div>
+
+    <!-- Summary Stats for Report Viewer (hidden by default) -->
+    <div class="summary-stats" id="summaryStats" style="display:none;"></div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar" id="filterBar">
+      <input type="text" id="filterSearch" placeholder="타이틀, 상세, 유관부서 검색...">
+      <select id="filterStatus">
+        <option value="">진행상태: 전체</option>
+        <option value="대기">대기</option>
+        <option value="진행중">진행중</option>
+        <option value="검토">검토</option>
+        <option value="완료">완료</option>
+        <option value="보류">보류</option>
+      </select>
+      <select id="filterPriority">
+        <option value="">우선순위: 전체</option>
+        <option value="높음">높음</option>
+        <option value="보통">보통</option>
+        <option value="낮음">낮음</option>
+      </select>
+    </div>
+
+    <!-- Loading (for viewer) -->
+    <div class="loading" id="loadingState" style="display:none;">
+      <div class="loading-spinner"></div>
+      <div>데이터를 불러오는 중...</div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper" id="tableWrapper">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable" data-column="title">타이틀 <span class="sort-icon" id="sort-title"></span></th>
+            <th class="sortable" data-column="department">유관부서 <span class="sort-icon" id="sort-department"></span></th>
+            <th class="sortable" data-column="priority">우선순위 <span class="sort-icon" id="sort-priority"></span></th>
+            <th class="sortable" data-column="status">진행상태 <span class="sort-icon" id="sort-status"></span></th>
+            <th class="sortable col-startDate" data-column="startDate">착수예정일 <span class="sort-icon" id="sort-startDate"></span></th>
+            <th class="sortable" data-column="endDate">완료예정일 <span class="sort-icon" id="sort-endDate"></span></th>
+            <th id="colAction">작업</th>
+          </tr>
+        </thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty-state" style="display:none;">등록된 업무가 없습니다</div>
+      <div class="table-footer" id="taskCount">총 0건</div>
+    </div>
+
+    <!-- Card List Container (for viewer mobile / report) -->
+    <div class="card-list-container" id="cardListContainer" style="display:none;">
+      <div class="card-list" id="cardList"></div>
+      <div id="emptyStateCards" class="empty-state" style="display:none;">등록된 업무가 없습니다</div>
+      <div class="table-footer" id="taskCountCards" style="display:none;">총 0건</div>
+    </div>
+  </div>
+
+  <!-- Task Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">업무 등록</h2>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <form id="taskForm" novalidate>
+        <input type="hidden" id="taskId">
+        <div class="form-group">
+          <label>타이틀 <span class="required">*</span></label>
+          <input type="text" id="fTitle" required>
+          <div class="error-msg" id="errTitle">타이틀을 입력해주세요.</div>
+        </div>
+        <div class="form-group">
+          <label>상세</label>
+          <textarea id="fDetail" rows="4"></textarea>
+        </div>
+        <div class="form-group">
+          <label>유관부서</label>
+          <input type="text" id="fDepartment">
+        </div>
+        <div class="form-group">
+          <label>우선순위 <span class="required">*</span></label>
+          <select id="fPriority" required>
+            <option value="">선택</option>
+            <option value="높음">높음</option>
+            <option value="보통">보통</option>
+            <option value="낮음">낮음</option>
+          </select>
+          <div class="error-msg" id="errPriority">우선순위를 선택해주세요.</div>
+        </div>
+        <div class="form-group">
+          <label>진행상태 <span class="required">*</span></label>
+          <select id="fStatus" required>
+            <option value="">선택</option>
+            <option value="대기">대기</option>
+            <option value="진행중">진행중</option>
+            <option value="검토">검토</option>
+            <option value="완료">완료</option>
+            <option value="보류">보류</option>
+          </select>
+          <div class="error-msg" id="errStatus">진행상태를 선택해주세요.</div>
+        </div>
+        <div class="form-group">
+          <label>착수예정일</label>
+          <input type="date" id="fStartDate">
+        </div>
+        <div class="form-group">
+          <label>완료예정일</label>
+          <input type="date" id="fEndDate">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btnCancel">취소</button>
+          <button type="submit" class="btn btn-primary">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Share Modal -->
+  <div class="modal-overlay" id="shareOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>업무 공유</h2>
+        <button class="modal-close" id="shareClose">&times;</button>
+      </div>
+      <p style="font-size:0.85rem;color:#64748b;margin-bottom:14px;">
+        현재 업무 데이터의 공유 링크를 생성합니다.<br>
+        공유된 링크는 읽기 전용 뷰어로 열립니다.
+      </p>
+      <div class="share-options">
+        <button class="share-option-btn" id="shareAdmin">
+          <div class="icon">&#128221;</div>
+          <div>
+            <div class="label">관리자용 공유</div>
+            <div class="desc">전체 필드 표시 (타이틀, 상세, 유관부서, 우선순위, 진행상태, 일정)</div>
+          </div>
+        </button>
+        <button class="share-option-btn" id="shareReport">
+          <div class="icon">&#128202;</div>
+          <div>
+            <div class="label">대표 보고용 공유</div>
+            <div class="desc">핵심 요약만 표시 (타이틀, 우선순위, 진행상태, 완료예정일) + 현황 통계</div>
+          </div>
+        </button>
+      </div>
+      <div class="share-result" id="shareResult">
+        <div class="share-result-label" id="shareResultLabel">공유 URL</div>
+        <div class="share-url-box">
+          <input type="text" id="shareUrlInput" readonly>
+          <button type="button" class="btn btn-primary" id="shareCopyBtn">복사</button>
+        </div>
+        <div class="share-toast" id="shareToast">클립보드에 복사되었습니다!</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ===== App State ===== */
+    const STORAGE_KEY = 'tasks';
+    const SUPABASE_URL = 'https://sjrzezrdngboywvsrkgl.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_UcAhYrsaIGjvNkdUoUKvEw_mwpqeAOD';
+    let sortState = { column: null, direction: null };
+    let supabaseClient = null;
+    let viewerMode = null;  // null | 'admin' | 'report'
+    let viewerTasks = null;  // tasks loaded from Supabase for viewer
+
+    /* ===== DOM refs ===== */
+    const $ = (sel) => document.querySelector(sel);
+    const taskBody = $('#taskBody');
+    const emptyState = $('#emptyState');
+    const taskCount = $('#taskCount');
+    const modalOverlay = $('#modalOverlay');
+    const modalTitle = $('#modalTitle');
+    const taskForm = $('#taskForm');
+
+    /* ===== Detect Viewer Mode from URL ===== */
+    function detectViewerMode() {
+      const params = new URLSearchParams(window.location.search);
+      const shareId = params.get('share');
+      const mode = params.get('mode');
+      if (shareId && (mode === 'admin' || mode === 'report')) {
+        return { shareId, mode };
+      }
+      return null;
+    }
+
+    /* ===== Supabase ===== */
+    function initSupabaseClient() {
+      try {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      } catch { supabaseClient = null; }
+    }
+
+    function generateShareId() {
+      return crypto.randomUUID().replace(/-/g, '').substring(0, 12);
+    }
+
+    async function createShare(mode) {
+      if (!supabaseClient) { alert('Supabase 설정을 먼저 완료해주세요.'); return null; }
+      const filtered = getFilteredTasks();
+      const sorted = sortTasks(filtered);
+      const shareId = generateShareId();
+
+      const { error } = await supabaseClient.from('shared_tasks').insert({
+        share_id: shareId,
+        mode: mode,
+        tasks: sorted,
+      });
+
+      if (error) {
+        alert('공유 생성 실패: ' + error.message);
+        return null;
+      }
+      return shareId;
+    }
+
+    async function loadSharedTasks(shareId) {
+      if (!supabaseClient) initSupabaseClient();
+      const client = supabaseClient;
+      if (!client) return null;
+
+      const { data, error } = await client
+        .from('shared_tasks')
+        .select('tasks, mode')
+        .eq('share_id', shareId)
+        .single();
+
+      if (error || !data) return null;
+      return data;
+    }
+
+    /* ===== localStorage CRUD ===== */
+    function loadTasks() {
+      if (viewerTasks) return viewerTasks;
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      } catch { return []; }
+    }
+
+    function saveTasks(tasks) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+
+    function addTask(data) {
+      const tasks = loadTasks();
+      tasks.push({ id: crypto.randomUUID(), ...data });
+      saveTasks(tasks);
+      render();
+    }
+
+    function updateTask(id, data) {
+      const tasks = loadTasks();
+      const idx = tasks.findIndex(t => t.id === id);
+      if (idx !== -1) {
+        tasks[idx] = { ...tasks[idx], ...data };
+        saveTasks(tasks);
+      }
+      render();
+    }
+
+    function deleteTask(id) {
+      if (!confirm('이 업무를 삭제하시겠습니까?')) return;
+      const tasks = loadTasks().filter(t => t.id !== id);
+      saveTasks(tasks);
+      render();
+    }
+
+    /* ===== Filtering ===== */
+    function getFilteredTasks() {
+      const search = $('#filterSearch').value.trim().toLowerCase();
+      const statusFilter = $('#filterStatus').value;
+      const priorityFilter = $('#filterPriority').value;
+      let tasks = loadTasks();
+
+      if (search) {
+        tasks = tasks.filter(t =>
+          (t.title || '').toLowerCase().includes(search) ||
+          (t.detail || '').toLowerCase().includes(search) ||
+          (t.department || '').toLowerCase().includes(search)
+        );
+      }
+      if (statusFilter) {
+        tasks = tasks.filter(t => t.status === statusFilter);
+      }
+      if (priorityFilter) {
+        tasks = tasks.filter(t => t.priority === priorityFilter);
+      }
+      return tasks;
+    }
+
+    /* ===== Sorting ===== */
+    const PRIORITY_WEIGHT = { '높음': 1, '보통': 2, '낮음': 3 };
+    const STATUS_WEIGHT = { '진행중': 1, '대기': 2, '검토': 3, '보류': 4, '완료': 5 };
+
+    function sortTasks(tasks) {
+      const { column, direction } = sortState;
+      if (!column || !direction) return tasks;
+
+      const sorted = [...tasks];
+      const dir = direction === 'asc' ? 1 : -1;
+
+      sorted.sort((a, b) => {
+        let va = a[column] || '';
+        let vb = b[column] || '';
+
+        if (column === 'startDate' || column === 'endDate') {
+          if (!va && !vb) return 0;
+          if (!va) return dir;
+          if (!vb) return -dir;
+          return va < vb ? -1 * dir : va > vb ? 1 * dir : 0;
+        }
+
+        if (column === 'priority') {
+          va = PRIORITY_WEIGHT[va] ?? 99;
+          vb = PRIORITY_WEIGHT[vb] ?? 99;
+          return (va - vb) * dir;
+        }
+
+        if (column === 'status') {
+          va = STATUS_WEIGHT[va] ?? 99;
+          vb = STATUS_WEIGHT[vb] ?? 99;
+          return (va - vb) * dir;
+        }
+
+        return va.localeCompare(vb, 'ko') * dir;
+      });
+
+      return sorted;
+    }
+
+    function toggleSort(column) {
+      if (sortState.column === column) {
+        if (sortState.direction === 'asc') sortState.direction = 'desc';
+        else if (sortState.direction === 'desc') { sortState.column = null; sortState.direction = null; }
+      } else {
+        sortState.column = column;
+        sortState.direction = 'asc';
+      }
+      render();
+    }
+
+    function updateSortIcons() {
+      document.querySelectorAll('.sort-icon').forEach(el => el.textContent = '');
+      if (sortState.column && sortState.direction) {
+        const icon = document.getElementById('sort-' + sortState.column);
+        if (icon) icon.textContent = sortState.direction === 'asc' ? '▲' : '▼';
+      }
+    }
+
+    /* ===== Rendering ===== */
+    function render() {
+      const filtered = getFilteredTasks();
+      const sorted = sortTasks(filtered);
+
+      // Table rendering (admin mode / normal mode)
+      taskBody.innerHTML = '';
+      updateSortIcons();
+
+      if (sorted.length === 0) {
+        emptyState.style.display = 'block';
+        taskBody.parentElement.querySelector('thead').style.display = 'none';
+      } else {
+        emptyState.style.display = 'none';
+        taskBody.parentElement.querySelector('thead').style.display = '';
+
+        sorted.forEach(task => {
+          const tr = document.createElement('tr');
+          const isViewer = !!viewerMode;
+          tr.innerHTML = `
+            <td>${escapeHtml(task.title)}</td>
+            <td>${escapeHtml(task.department)}</td>
+            <td><span class="badge badge-priority-${task.priority}">${task.priority}</span></td>
+            <td><span class="badge badge-status-${task.status}">${task.status}</span></td>
+            <td class="col-startDate">${task.startDate || ''}</td>
+            <td>${task.endDate || ''}</td>
+            ${isViewer ? '' : `<td><button class="btn btn-danger btn-delete" data-id="${task.id}">삭제</button></td>`}
+          `;
+          if (!isViewer) {
+            tr.addEventListener('click', (e) => {
+              if (e.target.closest('.btn-delete')) return;
+              openModal(task);
+            });
+          } else {
+            tr.style.cursor = 'default';
+          }
+          taskBody.appendChild(tr);
+        });
+      }
+
+      taskCount.textContent = `총 ${sorted.length}건`;
+
+      // Card rendering (for viewer modes)
+      if (viewerMode) {
+        renderCards(sorted);
+        if (viewerMode === 'report') {
+          renderSummary(sorted);
+        }
+      }
+    }
+
+    function renderCards(tasks) {
+      const cardList = $('#cardList');
+      const emptyCards = $('#emptyStateCards');
+      const countCards = $('#taskCountCards');
+
+      cardList.innerHTML = '';
+
+      if (tasks.length === 0) {
+        emptyCards.style.display = 'block';
+        countCards.style.display = 'none';
+      } else {
+        emptyCards.style.display = 'none';
+        countCards.style.display = 'block';
+        countCards.textContent = `총 ${tasks.length}건`;
+
+        tasks.forEach(task => {
+          const card = document.createElement('div');
+          card.className = `task-card priority-${task.priority}`;
+
+          if (viewerMode === 'report') {
+            // Report: compact card — title, priority, status, endDate only
+            card.innerHTML = `
+              <div class="task-card-title">${escapeHtml(task.title)}</div>
+              <div class="task-card-badges">
+                <span class="badge badge-priority-${task.priority}">${task.priority}</span>
+                <span class="badge badge-status-${task.status}">${task.status}</span>
+              </div>
+              ${task.endDate ? `<div style="font-size:0.8rem;color:#64748b;">완료예정: ${task.endDate}</div>` : ''}
+            `;
+          } else {
+            // Admin: full card — all fields
+            card.innerHTML = `
+              <div class="task-card-title">${escapeHtml(task.title)}</div>
+              <div class="task-card-badges">
+                <span class="badge badge-priority-${task.priority}">${task.priority}</span>
+                <span class="badge badge-status-${task.status}">${task.status}</span>
+              </div>
+              <dl class="task-card-fields">
+                ${task.department ? `<dt>유관부서</dt><dd>${escapeHtml(task.department)}</dd>` : ''}
+                ${task.startDate ? `<dt>착수예정</dt><dd>${task.startDate}</dd>` : ''}
+                ${task.endDate ? `<dt>완료예정</dt><dd>${task.endDate}</dd>` : ''}
+              </dl>
+              ${task.detail ? `<div class="task-card-detail">${escapeHtml(task.detail)}</div>` : ''}
+            `;
+          }
+
+          cardList.appendChild(card);
+        });
+      }
+    }
+
+    function renderSummary(tasks) {
+      const container = $('#summaryStats');
+      const allTasks = loadTasks(); // use unfiltered for summary
+
+      const statusCounts = {};
+      const priorityCounts = {};
+      allTasks.forEach(t => {
+        statusCounts[t.status] = (statusCounts[t.status] || 0) + 1;
+        priorityCounts[t.priority] = (priorityCounts[t.priority] || 0) + 1;
+      });
+
+      const statuses = ['진행중', '대기', '검토', '완료', '보류'];
+      let html = `<div class="stat-card"><div class="stat-value">${allTasks.length}</div><div class="stat-label">전체</div></div>`;
+      statuses.forEach(s => {
+        if (statusCounts[s]) {
+          html += `<div class="stat-card"><div class="stat-value">${statusCounts[s]}</div><div class="stat-label">${s}</div></div>`;
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    /* ===== Modal ===== */
+    function openModal(task = null) {
+      taskForm.reset();
+      document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
+
+      if (task) {
+        modalTitle.textContent = '업무 수정';
+        $('#taskId').value = task.id;
+        $('#fTitle').value = task.title || '';
+        $('#fDetail').value = task.detail || '';
+        $('#fDepartment').value = task.department || '';
+        $('#fPriority').value = task.priority || '';
+        $('#fStatus').value = task.status || '';
+        $('#fStartDate').value = task.startDate || '';
+        $('#fEndDate').value = task.endDate || '';
+      } else {
+        modalTitle.textContent = '업무 등록';
+        $('#taskId').value = '';
+      }
+
+      modalOverlay.classList.add('active');
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('active');
+    }
+
+    function validateForm() {
+      let valid = true;
+
+      if (!$('#fTitle').value.trim()) {
+        $('#errTitle').style.display = 'block';
+        valid = false;
+      } else {
+        $('#errTitle').style.display = 'none';
+      }
+
+      if (!$('#fPriority').value) {
+        $('#errPriority').style.display = 'block';
+        valid = false;
+      } else {
+        $('#errPriority').style.display = 'none';
+      }
+
+      if (!$('#fStatus').value) {
+        $('#errStatus').style.display = 'block';
+        valid = false;
+      } else {
+        $('#errStatus').style.display = 'none';
+      }
+
+      return valid;
+    }
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      if (!validateForm()) return;
+
+      const data = {
+        title: $('#fTitle').value.trim(),
+        detail: $('#fDetail').value.trim(),
+        department: $('#fDepartment').value.trim(),
+        priority: $('#fPriority').value,
+        status: $('#fStatus').value,
+        startDate: $('#fStartDate').value,
+        endDate: $('#fEndDate').value,
+      };
+
+      const id = $('#taskId').value;
+      if (id) {
+        updateTask(id, data);
+      } else {
+        addTask(data);
+      }
+      closeModal();
+    }
+
+    /* ===== Excel Export ===== */
+    function exportExcel() {
+      const filtered = getFilteredTasks();
+      const sorted = sortTasks(filtered);
+
+      const headers = ['타이틀', '상세', '유관부서', '우선순위', '진행상태', '착수예정일', '완료예정일'];
+      const rows = sorted.map(t => [
+        t.title || '', t.detail || '', t.department || '',
+        t.priority || '', t.status || '', t.startDate || '', t.endDate || '',
+      ]);
+
+      const wsData = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r: 0, c });
+        if (ws[addr]) {
+          ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'E2E8F0' } } };
+        }
+      }
+
+      ws['!cols'] = [
+        { wch: 24 }, { wch: 36 }, { wch: 14 },
+        { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 },
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '업무목록');
+
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      XLSX.writeFile(wb, `업무목록_${y}${m}${d}.xlsx`);
+    }
+
+    /* ===== Viewer Mode Setup ===== */
+    async function enterViewerMode(shareId, mode) {
+      viewerMode = mode;
+
+      // Show loading
+      $('#loadingState').style.display = 'block';
+      $('#tableWrapper').style.display = 'none';
+      $('#headerActions').style.display = 'none';
+
+      // Set viewer CSS class
+      const app = $('#app');
+      app.classList.add('viewer-mode');
+      if (mode === 'report') app.classList.add('report-mode');
+
+      // Show viewer banner
+      const banner = $('#viewerBanner');
+      if (mode === 'admin') {
+        banner.textContent = '관리자용 공유 뷰 (읽기 전용)';
+        banner.className = 'viewer-banner';
+        $('#appTitle').textContent = '업무 관리 (공유 뷰)';
+      } else {
+        banner.textContent = '업무 현황 보고서 (읽기 전용)';
+        banner.className = 'viewer-banner report';
+        $('#appTitle').textContent = '업무 현황 보고서';
+      }
+      banner.style.display = 'block';
+
+      // Hide action column header
+      const colAction = $('#colAction');
+      if (colAction) colAction.style.display = 'none';
+
+      // Load data from Supabase
+      const result = await loadSharedTasks(shareId);
+
+      $('#loadingState').style.display = 'none';
+
+      if (!result || !result.tasks) {
+        $('#emptyState').style.display = 'block';
+        emptyState.textContent = '공유 데이터를 찾을 수 없습니다. URL을 확인해주세요.';
+        $('#tableWrapper').style.display = 'block';
+        return;
+      }
+
+      viewerTasks = result.tasks;
+
+      // Show appropriate containers
+      $('#tableWrapper').style.display = 'block';
+      $('#cardListContainer').style.display = 'block';
+      if (mode === 'report') {
+        $('#summaryStats').style.display = 'grid';
+        $('#cardListContainer').classList.remove('admin-cards');
+      } else {
+        $('#cardListContainer').classList.add('admin-cards');
+      }
+
+      render();
+    }
+
+    /* ===== Share Modal ===== */
+    function openShare() {
+      $('#shareResult').classList.remove('active');
+      $('#shareToast').style.display = 'none';
+      $('#shareOverlay').classList.add('active');
+    }
+
+    function closeShare() {
+      $('#shareOverlay').classList.remove('active');
+    }
+
+    async function handleShare(mode) {
+      const btns = document.querySelectorAll('.share-option-btn');
+      btns.forEach(b => b.disabled = true);
+
+      const shareId = await createShare(mode);
+
+      btns.forEach(b => b.disabled = false);
+
+      if (!shareId) return;
+
+      const base = window.location.protocol === 'file:'
+        ? 'https://yckim747.github.io/task'
+        : window.location.origin + window.location.pathname;
+      const shareUrl = `${base}?share=${shareId}&mode=${mode}`;
+
+      const label = mode === 'admin' ? '관리자용 공유 URL' : '대표 보고용 공유 URL';
+      $('#shareResultLabel').textContent = label;
+      $('#shareUrlInput').value = shareUrl;
+      $('#shareResult').classList.add('active');
+    }
+
+    function copyShareUrl() {
+      const input = $('#shareUrlInput');
+      input.select();
+      navigator.clipboard.writeText(input.value).then(() => {
+        const toast = $('#shareToast');
+        toast.style.display = 'block';
+        setTimeout(() => toast.style.display = 'none', 2000);
+      });
+    }
+
+    /* ===== Event Listeners ===== */
+    // Header sort
+    document.querySelectorAll('th.sortable').forEach(th => {
+      th.addEventListener('click', () => toggleSort(th.dataset.column));
+    });
+
+    // Filter events
+    $('#filterSearch').addEventListener('input', render);
+    $('#filterStatus').addEventListener('change', render);
+    $('#filterPriority').addEventListener('change', render);
+
+    // Buttons
+    $('#btnAdd').addEventListener('click', () => openModal());
+    $('#btnExcel').addEventListener('click', exportExcel);
+    $('#btnShare').addEventListener('click', openShare);
+
+    // Task Modal
+    $('#modalClose').addEventListener('click', closeModal);
+    $('#btnCancel').addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+    taskForm.addEventListener('submit', handleSubmit);
+
+    // Delete delegation
+    taskBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-delete');
+      if (btn) {
+        e.stopPropagation();
+        deleteTask(btn.dataset.id);
+      }
+    });
+
+    // Share Modal
+    $('#shareClose').addEventListener('click', closeShare);
+    $('#shareOverlay').addEventListener('click', (e) => {
+      if (e.target === $('#shareOverlay')) closeShare();
+    });
+    $('#shareAdmin').addEventListener('click', () => handleShare('admin'));
+    $('#shareReport').addEventListener('click', () => handleShare('report'));
+    $('#shareCopyBtn').addEventListener('click', copyShareUrl);
+
+    /* ===== Init ===== */
+    (async function init() {
+      initSupabaseClient();
+      const share = detectViewerMode();
+      if (share) {
+        await enterViewerMode(share.shareId, share.mode);
+      } else {
+        render();
+      }
+    })();
+  </script>
+</body>
+</html>
