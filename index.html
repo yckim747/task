@@ -643,8 +643,10 @@
     const STORAGE_KEY = 'tasks';
     const SUPABASE_URL = 'https://sjrzezrdngboywvsrkgl.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_UcAhYrsaIGjvNkdUoUKvEw_mwpqeAOD';
+    const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqcnplenJkbmdib3l3dnNya2dsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzQzMDE3MywiZXhwIjoyMDg5MDA2MTczfQ.zc5SlmaFSmdp8CbahI_QlCUInrTS-b5AoMRe5q9oboc';
     let sortState = { column: null, direction: null };
     let supabaseClient = null;
+    let supabaseAdmin = null;
     let viewerMode = null;  // null | 'admin' | 'report'
     let viewerTasks = null;  // tasks loaded from Supabase for viewer
 
@@ -671,18 +673,19 @@
     function initSupabaseClient() {
       try {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      } catch { supabaseClient = null; }
+        supabaseAdmin = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      } catch { supabaseClient = null; supabaseAdmin = null; }
     }
 
     const FIXED_SHARE_ID = 'report';
 
     async function updateShare() {
-      if (!supabaseClient) { alert('Supabase 연결 실패'); return false; }
+      if (!supabaseAdmin) { alert('Supabase 연결 실패'); return false; }
       const filtered = getFilteredTasks();
       const sorted = sortTasks(filtered);
 
-      await supabaseClient.from('shared_tasks').delete().eq('share_id', FIXED_SHARE_ID);
-      const { error } = await supabaseClient.from('shared_tasks').insert({
+      await supabaseAdmin.from('shared_tasks').delete().eq('share_id', FIXED_SHARE_ID);
+      const { error } = await supabaseAdmin.from('shared_tasks').insert({
         share_id: FIXED_SHARE_ID,
         mode: 'report',
         tasks: sorted,
