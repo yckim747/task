@@ -268,6 +268,35 @@
       margin-top: 3px;
       display: none;
     }
+    .checkbox-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+    }
+    .checkbox-group label {
+      display: flex !important;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem !important;
+      font-weight: 400 !important;
+      color: #334155 !important;
+      cursor: pointer;
+      padding: 4px 0;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      accent-color: #4338ca;
+    }
+    .dept-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+    .badge-dept {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      background: #e0e7ff;
+      color: #3730a3;
+    }
     .form-actions {
       display: flex;
       gap: 8px;
@@ -571,7 +600,16 @@
         </div>
         <div class="form-group">
           <label>유관부서</label>
-          <input type="text" id="fDepartment">
+          <div class="checkbox-group" id="fDepartment">
+            <label><input type="checkbox" value="제휴예약"> 제휴예약</label>
+            <label><input type="checkbox" value="마케팅"> 마케팅</label>
+            <label><input type="checkbox" value="영업"> 영업</label>
+            <label><input type="checkbox" value="HR"> HR</label>
+            <label><input type="checkbox" value="경영기획"> 경영기획</label>
+            <label><input type="checkbox" value="재무"> 재무</label>
+            <label><input type="checkbox" value="신규사업"> 신규사업</label>
+            <label><input type="checkbox" value="WGL"> WGL</label>
+          </div>
         </div>
         <div class="form-group">
           <label>우선순위 <span class="required">*</span></label>
@@ -863,7 +901,7 @@
           const isViewer = !!viewerMode;
           tr.innerHTML = `
             <td>${escapeHtml(task.title)}</td>
-            <td>${escapeHtml(task.department)}</td>
+            <td><div class="dept-badges">${renderDeptBadges(task.department)}</div></td>
             <td><span class="badge badge-priority-${task.priority}">${task.priority}</span></td>
             <td><span class="badge badge-status-${task.status}">${task.status}</span></td>
             <td class="col-startDate">${task.startDate || ''}</td>
@@ -913,7 +951,6 @@
           card.className = `task-card priority-${task.priority}`;
 
           if (viewerMode === 'report') {
-            // Report: compact card — title, priority, status, endDate only
             card.innerHTML = `
               <div class="task-card-title">${escapeHtml(task.title)}</div>
               <div class="task-card-badges">
@@ -921,6 +958,7 @@
                 <span class="badge badge-status-${task.status}">${task.status}</span>
               </div>
               ${task.endDate ? `<div style="font-size:0.8rem;color:#64748b;">완료예정: ${task.endDate}</div>` : ''}
+              ${task.detail ? `<div class="task-card-detail">${escapeHtml(task.detail)}</div>` : ''}
             `;
           } else {
             // Admin: full card — all fields
@@ -931,7 +969,7 @@
                 <span class="badge badge-status-${task.status}">${task.status}</span>
               </div>
               <dl class="task-card-fields">
-                ${task.department ? `<dt>유관부서</dt><dd>${escapeHtml(task.department)}</dd>` : ''}
+                ${task.department ? `<dt>유관부서</dt><dd><div class="dept-badges">${renderDeptBadges(task.department)}</div></dd>` : ''}
                 ${task.startDate ? `<dt>착수예정</dt><dd>${task.startDate}</dd>` : ''}
                 ${task.endDate ? `<dt>완료예정</dt><dd>${task.endDate}</dd>` : ''}
               </dl>
@@ -973,6 +1011,25 @@
       return d.innerHTML;
     }
 
+    /* ===== Department Helpers ===== */
+    function getDepartmentValue() {
+      const checks = document.querySelectorAll('#fDepartment input[type="checkbox"]:checked');
+      return Array.from(checks).map(c => c.value).join(', ');
+    }
+
+    function setDepartmentCheckboxes(value) {
+      const selected = value.split(',').map(s => s.trim()).filter(Boolean);
+      document.querySelectorAll('#fDepartment input[type="checkbox"]').forEach(cb => {
+        cb.checked = selected.includes(cb.value);
+      });
+    }
+
+    function renderDeptBadges(department) {
+      if (!department) return '';
+      return department.split(',').map(d => d.trim()).filter(Boolean)
+        .map(d => `<span class="badge-dept">${escapeHtml(d)}</span>`).join('');
+    }
+
     /* ===== Modal ===== */
     function openModal(task = null) {
       taskForm.reset();
@@ -983,7 +1040,7 @@
         $('#taskId').value = task.id;
         $('#fTitle').value = task.title || '';
         $('#fDetail').value = task.detail || '';
-        $('#fDepartment').value = task.department || '';
+        setDepartmentCheckboxes(task.department || '');
         $('#fPriority').value = task.priority || '';
         $('#fStatus').value = task.status || '';
         $('#fStartDate').value = task.startDate || '';
@@ -1034,7 +1091,7 @@
       const data = {
         title: $('#fTitle').value.trim(),
         detail: $('#fDetail').value.trim(),
-        department: $('#fDepartment').value.trim(),
+        department: getDepartmentValue(),
         priority: $('#fPriority').value,
         status: $('#fStatus').value,
         startDate: $('#fStartDate').value,
