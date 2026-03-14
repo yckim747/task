@@ -425,9 +425,7 @@
       color: #334155;
     }
     .task-card-detail {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid #f1f5f9;
+      margin-top: 4px;
       font-size: 0.82rem;
       color: #475569;
       white-space: pre-wrap;
@@ -953,18 +951,18 @@
           if (viewerMode === 'report') {
             card.innerHTML = `
               <div class="task-card-title">${escapeHtml(task.title)}</div>
-              <div class="task-card-badges">
+              ${task.detail ? `<div class="task-card-detail">${escapeHtml(task.detail)}</div>` : ''}
+              <div class="task-card-badges" style="margin-top:8px;">
                 <span class="badge badge-priority-${task.priority}">${task.priority}</span>
                 <span class="badge badge-status-${task.status}">${task.status}</span>
               </div>
-              ${task.endDate ? `<div style="font-size:0.8rem;color:#64748b;">완료예정: ${task.endDate}</div>` : ''}
-              ${task.detail ? `<div class="task-card-detail">${escapeHtml(task.detail)}</div>` : ''}
+              ${task.endDate ? `<div style="font-size:0.8rem;color:#64748b;margin-top:4px;">완료예정: ${task.endDate}</div>` : ''}
             `;
           } else {
-            // Admin: full card — all fields
             card.innerHTML = `
               <div class="task-card-title">${escapeHtml(task.title)}</div>
-              <div class="task-card-badges">
+              ${task.detail ? `<div class="task-card-detail">${escapeHtml(task.detail)}</div>` : ''}
+              <div class="task-card-badges" style="margin-top:8px;">
                 <span class="badge badge-priority-${task.priority}">${task.priority}</span>
                 <span class="badge badge-status-${task.status}">${task.status}</span>
               </div>
@@ -973,7 +971,6 @@
                 ${task.startDate ? `<dt>착수예정</dt><dd>${task.startDate}</dd>` : ''}
                 ${task.endDate ? `<dt>완료예정</dt><dd>${task.endDate}</dd>` : ''}
               </dl>
-              ${task.detail ? `<div class="task-card-detail">${escapeHtml(task.detail)}</div>` : ''}
             `;
           }
 
